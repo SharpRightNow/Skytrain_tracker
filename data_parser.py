@@ -90,7 +90,7 @@ def get_clean_trip_data(route_ids, columns_to_keep):
     return tracked_trips
 
 
-def get_clean_stop_data(trip_ids, columns_to_keep):
+def get_clean_stop_times_data(trip_ids, columns_to_keep):
     """Takes in a list of trip ids, and a list of desired data about the stops, and
     returns a list of all specified stops as dicts, each with a description of
     the data, then the data."""
@@ -114,7 +114,60 @@ def get_clean_stop_data(trip_ids, columns_to_keep):
     return tracked_stops
 
 
-a = [x["trip_id"]
-     for x in get_clean_trip_data(tracked_route_ids, ["trip_id"])]
-for stop in get_clean_stop_data(a, stop_time_columns_to_keep):
-    print(stop)
+def get_clean_stops_data(stop_ids, columns_to_keep):
+    """Takes in a list of stop ids, and a list of desired data about the stops, and
+    returns a list of all specified stops as dicts, each with a description of
+    the data, then the data."""
+
+    stop_ids_set = set(stop_ids)  # Convert list to set for faster lookup
+
+    tracked_stops = []
+
+    with open("GTFS data/stops.txt", "r") as stops_file:
+
+        stops_read = csv.DictReader(stops_file)
+        headers = stops_read.fieldnames
+
+        for stop in stops_read:
+            if stop["stop_id"] in stop_ids_set:
+                for key in headers:
+                    if key not in columns_to_keep:
+                        del stop[key]
+                tracked_stops.append(stop)
+
+    return tracked_stops
+
+
+def get_clean_data(ids, columns_to_keep, data_type):
+
+    # Supported data types (file name) and the id we're filtering with
+    supported_data_types = {"routes": "route_id",
+                            "trips": "route_id",
+                            "stop_times": "stop_id",
+                            "stops": "stop_id"}
+
+    if data_type not in supported_data_types:
+        raise ValueError(
+            f"Unsupported data type: {data_type}. Supported types are: {', '.join(supported_data_types.keys())}")
+
+    id_key = supported_data_types[data_type]
+    ids_set = set(ids)  # Convert list to set for faster lookup
+
+    tracked_data = []
+
+    with open(f"GTFS data/{data_type}.txt", "r") as file:
+
+        read = csv.DictReader(file)
+        headers = read.fieldnames
+
+        for row in read:
+            if row[id_key] in ids_set:  # Never returns true
+                for key in headers:
+                    if key not in columns_to_keep:
+                        del row[key]
+                tracked_data.append(row)
+    return tracked_data
+
+
+# print(get_clean_trip_data(tracked_route_ids, trip_columns_to_keep))
+print(get_clean_data(tracked_route_ids, route_columns_to_keep, "routes"))
