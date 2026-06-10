@@ -1,5 +1,6 @@
 # import packages
 import csv
+import time
 
 route_columns_to_keep = ["route_long_name",
                          "route_short_name",
@@ -7,11 +8,15 @@ route_columns_to_keep = ["route_long_name",
 trip_columns_to_keep = ["route_id",
                         "trip_id",
                         "direction_id",
-                        "block_id",
                         "trip_headsign",
                         "shape_id",
                         "service_id",]
-
+stop_time_columns_to_keep = ["trip_id",
+                             "arrival_time",
+                             "departure_time",
+                             "stop_id",
+                             "stop_sequence",
+                             "shape_dist_traveled",]
 
 tracked_route_ids = [
     "30053",  # Expo line
@@ -41,10 +46,11 @@ tracked_route_ids = [
 
 def get_clean_route_data(route_ids, columns_to_keep):
     """Takes in a list of route ids, and a list of desired data about those routes and
-    returns a list of the specified routes as dicts, each with a description of the 
+    returns a list of the specified routes as dicts, each with a description of the
     data, then the data."""
 
     tracked_routes = []
+    route_ids_set = set(route_ids)  # Convert list to set for faster lookup
 
     with open("GTFS data/routes.txt", "r") as routes_file:
 
@@ -52,21 +58,21 @@ def get_clean_route_data(route_ids, columns_to_keep):
         headers = routes_read.fieldnames
 
         for route in routes_read:
-            for key in headers:
-                if key not in columns_to_keep:
-                    del route[key]
-
-            if route["route_id"] in route_ids:
+            if route["route_id"] in route_ids_set:
+                for key in headers:
+                    if key not in columns_to_keep:
+                        del route[key]
                 tracked_routes.append(route)
 
     return tracked_routes
 
 
 def get_clean_trip_data(route_ids, columns_to_keep):
-    """Takes in a list of route ids, and a list of desired data about those trips, and
-    returns a list of all specified trips as dicts, each with a description of 
+    """Takes in a list of route ids, and a list of desired data about the trips, and
+    returns a list of all specified trips as dicts, each with a description of
     the data, then the data."""
 
+    route_ids_set = set(route_ids)  # Convert list to set for faster lookup
     tracked_trips = []
 
     with open("GTFS data/trips.txt", "r") as trips_file:
@@ -75,21 +81,40 @@ def get_clean_trip_data(route_ids, columns_to_keep):
         headers = trips_read.fieldnames
 
         for trip in trips_read:
-            for key in headers:
-                if key not in columns_to_keep:
-                    del trip[key]
-
-            if trip["route_id"] in route_ids:
+            if trip["route_id"] in route_ids_set:
+                for key in headers:
+                    if key not in columns_to_keep:
+                        del trip[key]
                 tracked_trips.append(trip)
 
     return tracked_trips
 
 
-data = get_clean_trip_data(tracked_route_ids, trip_columns_to_keep)
+def get_clean_stop_data(trip_ids, columns_to_keep):
+    """Takes in a list of trip ids, and a list of desired data about the stops, and
+    returns a list of all specified stops as dicts, each with a description of
+    the data, then the data."""
 
-for i in data:
-    for n in data:
-        if i['route_id'] == n['route_id'] and i['direction_id'] == n['direction_id']:
-            if i["shape_id"] != n["shape_id"]:
-                print("shapes dont match on trip " +
-                      i["trip_id"] + " and trip " + n["trip_id"])
+    trip_ids_set = set(trip_ids)  # Convert list to set for faster lookup
+
+    tracked_stops = []
+
+    with open("GTFS data/stop_times.txt", "r") as stop_times_file:
+
+        stop_times_read = csv.DictReader(stop_times_file)
+        headers = stop_times_read.fieldnames
+
+        for stop_time in stop_times_read:
+            if stop_time["trip_id"] in trip_ids_set:
+                for key in headers:
+                    if key not in columns_to_keep:
+                        del stop_time[key]
+                tracked_stops.append(stop_time)
+
+    return tracked_stops
+
+
+a = [x["trip_id"]
+     for x in get_clean_trip_data(tracked_route_ids, ["trip_id"])]
+for stop in get_clean_stop_data(a, stop_time_columns_to_keep):
+    print(stop)
