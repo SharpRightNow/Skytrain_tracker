@@ -1,5 +1,6 @@
 import heapq
 import datetime
+import csv
 
 import data_parser
 import vehicle_class
@@ -21,57 +22,74 @@ tracked_route_ids = [
     "46604",  # Scott Road (R6)
 ]
 
-tracked_routes_names = [["Expo Line", ""],
-                        ["Millennium Line", ""],
-                        ["Canada Line", ""],
-                        ["Broadway B-Line", ""],
-                        ["King George Blvd", "R1"],  # R1
-                        ["Marine Drive", "R2"],  # R2
-                        ["Lougheed Hwy", "R3"],  # R3
-                        ["41st Avenue", "R4"],  # R4
-                        ["Hastings St", "R5"],  # R5
-                        ["Scott Road", "R6"],  # R6
-                        ]
+tracked_routes_names = ("Expo Line",
+                        "Millennium Line",
+                        "Canada Line",
+                        "Broadway B-Line",
+                        "King George Blvd",  # R1
+                        "Marine Drive",  # R2
+                        "Lougheed Hwy",  # R3
+                        "41st Avenue",  # R4
+                        "Hastings St",  # R5
+                        "Scott Road",  # R6
+                        "SeaBus")
 
-# route_ids = [data_parser.get_route_ids(route[0])
-#              for route in tracked_routes_names]
-# trip_ids = {route_id: data_parser.get_trip_ids(
-#     route_id) for route_id in route_ids}
+routes = {}
 
-routes = {route_id: (route_long_name, route_short_name, route_color)}
-trips = {route_id: (trip_id_1, trip_id_2, trip_id_3)}
-stops = {trip_id: {stop_id: (arrival_time, departure_time, stop_sequence)},
-         stop_id_2: (arrival_time_2, departure_time_2, stop_sequence_2),
-         stop_id_3: (arrival_time_3, departure_time_3, stop_sequence_3)}
+with open("GTFS data/routes.txt", "r") as routes_file:
+    routes_read = csv.DictReader(routes_file)
 
-stops2 = {trip_id: [stop_class.stop(stop_id, arrival_time, departure_time, stop_sequence),
-                    stop_class.stop(stop_id_2, arrival_time_2,
-                                    departure_time_2, stop_sequence_2),
-                    stop_class.stop(stop_id_3, arrival_time_3, departure_time_3, stop_sequence_3)]}
+    for row in routes_read:
+        if row["route_long_name"] in tracked_routes_names:
+            routes[row["route_id"]] = [row["route_long_name"],
+                                       row["route_short_name"],
+                                       row["route_color"]]
 
-# GTFS data to be held in memory like this:
-# route
-#     trip
-#         stops
-#             stop_times
+trips = {route_id: [] for route_id in routes}
 
+with open("GTFS data/trips.txt", "r") as trips_file:
+    trips_read = csv.DictReader(trips_file)
 
-# Stops pseudo code
-# read into mem
-# grab only relevent lines
-# put each line into a class
-# put each class into one list
-# sort list by stop_seaquence
-# put list into a dict with trip_id as key
+    for row in trips_read:
+        route_id = row["route_id"]
+        if route_id in trips:
+            trips[route_id].append(row["trip_id"])
 
+stops = {trip_id: [] for route_trip in trips.values()
+         for trip_id in route_trip}
 
-for i in range(5):
-    # Create a vehicle object with dummy data
-    v = vehicle_class.vehicle(route=f"Route {i}", trip=f"Trip {i}",
-                              stops=[], stop_times=[], start_time=datetime.datetime.now())
+with open("GTFS data/stop_times.txt", "r") as stop_times_file:
 
-    # Add the vehicle to the priority queue with its next light time as the priority
-    heapq.heappush(q, v)
+    # using csv.reader for faster loading times
+    stop_times_read = csv.reader(stop_times_file)
+    stop_times_header = next(stop_times_read)
+
+    stop_id_index = stop_times_header.index("stop_id")
+    trip_id_index = stop_times_header.index("trip_id")
+    arrival_time_index = stop_times_header.index("arrival_time")
+    departure_time_index = stop_times_header.index("departure_time")
+    stop_sequence_index = stop_times_header.index("stop_sequence")
+
+    for row in stop_times_read:
+        trip_id = row[trip_id_index]
+        trip_list_reference = stops.get(trip_id)
+
+        if trip_list_reference is not None:
+            trip_list_reference.append(stop_class.stop(row[stop_id_index],
+                                                       row[trip_id_index],
+                                                       row[arrival_time_index],
+                                                       row[departure_time_index],
+                                                       row[stop_sequence_index]))
+
+for trip in stops:
+    stops[trip].sort(key=lambda stop: int(stop.stop_sequence))
+
+for route in routes:
+    for trip in trips[route]:
+        heapq.heappush(q, vehicle_class.vehicle(
+            route, trip, stops[trip], None))
+
+print(q[0])
 
 # Time speed up can be done by using a sort of delta time,
 # and multiplying it by the time speed up/slow down factor,

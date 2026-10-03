@@ -1,12 +1,10 @@
 import datetime
 
-
 class vehicle:
-    def __init__(self, route, trip, stops, stop_times, start_time):
+    def __init__(self, route, trip, stops, start_time):
         self.route = route
         self.trip = trip
         self.stops = stops
-        self.stop_times = stop_times
 
         # TODO: Fix this
         self.next_light_time = (
